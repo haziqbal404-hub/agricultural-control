@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TerraMind | Analytics & Log Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #2d5a27; --bg: #f3f4f6; --danger: #ef4444; }
+        body { font-family: 'Poppins', sans-serif; background: var(--bg); color: #1f2937; margin: 0; padding: 20px; }
+        .wrapper { max-width: 1100px; margin: 0 auto; }
+        .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .btn { padding: 8px 15px; border-radius: 8px; cursor: pointer; text-decoration: none; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; font-family: inherit; font-size: 0.85rem; }
+        .btn-excel { background: #15803d; color: white; }
+        .btn-danger { background: #fee2e2; color: var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: white; }
+        .btn-back { background: #6b7280; color: white; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f3f4f6; }
+        th { background: #f9fafb; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
+        
+        tr.selected { background-color: #f0fdf4; }
+        .checkbox-cell { width: 40px; }
+        .action-cell { width: 100px; text-align: center; }
+        
+        .st-pending { color: #d97706; font-weight: 600; }
+        .st-done { color: #15803d; font-weight: 600; }
+        .st-blocked { color: #b91c1c; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <div class="nav-header">
+            <h2><i data-lucide="database" style="vertical-align: middle;"></i> Log Management</h2>
+            <a href="admin.html" class="btn btn-back"><i data-lucide="arrow-left"></i> Back to Admin</a>
+        </div>
+
+        <!-- 1. CHART CARD -->
+        <div class="card">
+            <h3>Sensor Trends (Every 12 Hours)</h3>
+            <div style="height: 300px;"><canvas id="myChart"></canvas></div>
+        </div>
+
+        <!-- 2. DATA TABLE CARD -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap:10px;">
+                <h3 style="margin:0">Activity Records</h3>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-danger" id="delete-selected-btn" style="display:none;"><i data-lucide="trash-2"></i> Delete Selected</button>
+                    <button class="btn btn-excel" id="export-btn"><i data-lucide="download"></i> Excel</button>
+                </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="checkbox-cell"><input type="checkbox" id="select-all"></th>
+                            <th>Date & Time</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th class="action-cell">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="5" style="text-align:center">Loading Logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAReyjrJAfJBBS9cZSDg8aDE2H-xGV_1K0",
+            authDomain: "smartargi-39ce1.firebaseapp.com",
+            projectId: "smartargi-39ce1",
+            storageBucket: "smartargi-39ce1.firebasestorage.app",
+            messagingSenderId: "706583262630",
+            appId: "1:706583262630:web:c104d03770b75735708b67",
+            databaseURL: "https://smartargi-39ce1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        let logsArray = []; // Stores actual objects for Excel
+        let selectedIDs = []; // Tracks keys to delete
+
+        onAuthStateChanged(auth, user => {
+            if (user) startAnalysis();
+            else window.location.href = "index.html";
+        });
+
+        function startAnalysis() {
+            // -- TREND CHART --
+            const chart = new Chart(document.getElementById('myChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ef4444' }, { label: 'Moist', data: [], borderColor: '#3b82f6' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            onValue(ref(db, 'system/history/sensors'), s => {
+                if(s.exists()){
+                    const lbl=[], t=[], m=[];
+                    s.forEach(c => { const d=c.val(); lbl.push(d.time); t.push(d.temp); m.push(d.moist); });
+                    chart.data.labels=lbl; chart.data.datasets[0].data=t; chart.data.datasets[1].data=m; chart.update();
+                }
+            });
+
+            // -- TABLE DATA WITH KEYS --
+            onValue(ref(db, 'system/logs'), snapshot => {
+                const body = document.getElementById('table-body');
+                body.innerHTML = "";
+                logsArray = [];
+
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const keys = Object.keys(data).reverse(); // Newest first
+
+                    keys.forEach(key => {
+                        const item = data[key];
+                        logsArray.push(item);
+                        
+                        let sClass = item.status === "Done" ? "st-done" : (item.status === "Not Yet" ? "st-pending" : "st-blocked");
+
+                        const row = `
+                            <tr id="row-${key}">
+                                <td><input type="checkbox" class="log-check" value="${key}"></td>
+                                <td>${item.time || '--'}</td>
+                                <td>${item.msg}<br><small>${item.duration}</small></td>
+                                <td class="${sClass}">${item.status}</td>
+                                <td class="action-cell">
+                                    <button class="btn btn-danger single-del" data-id="${key}"><i data-lucide="trash-x"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                        body.innerHTML += row;
+                    });
+                    
+                    setupTableEvents();
+                } else {
+                    body.innerHTML = "<tr><td colspan='5' style='text-align:center'>No records found.</td></tr>";
+                }
+                lucide.createIcons();
+            });
+        }
+
+        // --- INTERACTION LOGIC ---
+        function setupTableEvents() {
+            const selectAll = document.getElementById('select-all');
+            const rowChecks = document.querySelectorAll('.log-check');
+            const deleteBtn = document.getElementById('delete-selected-btn');
+
+            // Toggle "Delete Selected" button visibility
+            const updateUI = () => {
+                const checked = document.querySelectorAll('.log-check:checked');
+                deleteBtn.style.display = checked.length > 0 ? "inline-flex" : "none";
+                deleteBtn.innerHTML = `<i data-lucide="trash-2"></i> Delete Selected (${checked.length})`;
+                lucide.createIcons();
+            };
+
+            // Select All listener
+            selectAll.onchange = (e) => {
+                rowChecks.forEach(cb => cb.checked = e.target.checked);
+                updateUI();
+            };
+
+            // Single Row Check listener
+            rowChecks.forEach(cb => {
+                cb.onchange = () => {
+                    if(!cb.checked) selectAll.checked = false;
+                    updateUI();
+                }
+            });
+
+            // Single Delete button
+            document.querySelectorAll('.single-del').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute('data-id');
+                    if(confirm("Permanently delete this log?")) {
+                        remove(ref(db, `system/logs/${id}`));
+                    }
+                };
+            });
+
+            // Bulk Delete Selected
+            deleteBtn.onclick = () => {
+                const checkedCbs = document.querySelectorAll('.log-check:checked');
+                if(confirm(`Delete ${checkedCbs.length} selected records?`)) {
+                    const updates = {};
+                    checkedCbs.forEach(cb => {
+                        updates[`/system/logs/${cb.value}`] = null;
+                    });
+                    update(ref(db), updates).then(() => {
+                        selectAll.checked = false;
+                        updateUI();
+                    });
+                }
+            };
+        }
+
+        // Excel Export
+        document.getElementById('export-btn').onclick = () => {
+            const ws = XLSX.utils.json_to_sheet(logsArray);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "FarmReport");
+            XLSX.writeFile(wb, "Farm_Activity_Log.xlsx");
+        };
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>

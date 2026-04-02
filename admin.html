@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TerraMind | Admin Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --p: #2d5a27; --p-light: #e8f5e9; --accent: #ffa000; --danger: #ef4444; }
+        body { font-family: 'Poppins', sans-serif; background: #f4f7f4; margin: 0; padding: 20px; }
+        
+        /* HEADER */
+        .header { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: auto; padding-bottom: 20px; border-bottom: 2px solid #ddd; }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--p); }
+        .nav-btns { display: flex; gap: 10px; }
+        
+        /* LAYOUT */
+        .container { max-width: 1200px; margin: 20px auto; }
+        .section-title { margin-top: 30px; margin-bottom: 15px; color: var(--p); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+        /* CARDS */
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eef2ee; }
+        .sensor-val { font-size: 2.5rem; font-weight: 600; color: var(--p); margin: 5px 0; }
+        .unit { font-size: 1rem; color: #888; font-weight: 400; }
+
+        /* BUTTONS */
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; width: 100%; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+        .btn-p { background: var(--p); color: white; }
+        .btn-outline { background: white; color: var(--p); border: 1.5px solid var(--p); }
+        .btn-logout { background: #fee2e2; color: var(--danger); }
+
+        /* PROGRESS BAR FOR TANK */
+        .progress-container { background: #eee; border-radius: 10px; height: 10px; margin: 15px 0; overflow: hidden; }
+        .progress-bar { height: 100%; width: 0%; background: var(--p); transition: 0.5s; }
+        .bar-low { background: var(--danger) !important; }
+
+        /* INPUTS */
+        input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-family: inherit; }
+        label { font-size: 0.75rem; font-weight: bold; color: var(--p); margin-top: 10px; display: block; }
+
+        /* STATUS BADGES */
+        .status-box { padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; margin-bottom: 15px; background: #f9fafb; border: 1px solid #eee; }
+        .pump-on { background: #dcfce7; color: #166534; }
+        .pump-off { background: #fee2e2; color: #991b1b; }
+        
+        .alert-box { padding: 10px; border-radius: 8px; font-size: 0.8rem; margin-top: 10px; border-left: 4px solid var(--accent); background: #fff8e1; color: #856404; }
+    </style>
+</head>
+<body style="display:none;" id="main-body">
+
+    <div class="header">
+        <div class="logo"><i data-lucide="shield-check"></i> Command Center</div>
+        <div class="nav-btns">
+            <a href="reports.html" class="btn btn-outline" style="width:auto;"><i data-lucide="line-chart"></i> Reports</a>
+            <button id="logout" class="btn btn-logout" style="width:auto;">Sign Out</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 1. LIVE MONITORING (Guest-style cards inside Admin) -->
+        <div class="section-title"><i data-lucide="activity"></i> Real-time Monitoring</div>
+        <div class="grid">
+            <div class="card">
+                <label>Environment Temp</label>
+                <div class="sensor-val"><span id="live-temp">--</span><span class="unit">°C</span></div>
+            </div>
+            <div class="card">
+                <label>Soil Hydration</label>
+                <div class="sensor-val"><span id="live-moist">--</span><span class="unit">%</span></div>
+            </div>
+            <div class="card">
+                <label>Fertilizer Tank Supply</label>
+                <div class="sensor-val" style="color:var(--accent)"><span id="live-fert">--</span><span class="unit">%</span></div>
+                <div class="progress-container"><div id="fert-bar" class="progress-bar"></div></div>
+                <div id="fert-msg" class="alert-box">Status: Syncing...</div>
+            </div>
+        </div>
+
+        <!-- 2. CONTROL GRID -->
+        <div class="section-title"><i data-lucide="settings"></i> System Controls</div>
+        <div class="grid">
+            <!-- Manual Switch -->
+            <div class="card">
+                <h4>Pump Control</h4>
+                <div id="pump-state" class="status-box pump-off">SYSTEM STANDBY</div>
+                <button id="manual-btn" class="btn btn-p"><i data-lucide="power"></i> Toggle Manual Mode</button>
+                <small style="color: #666; display: block; margin-top: 10px;">Use for instant watering outside schedule.</small>
+            </div>
+
+            <!-- Watering Sched -->
+            <div class="card" style="border-left-color: #3b82f6;">
+                <h4>Watering Schedule</h4>
+                <label>Target Date</label>
+                <input type="date" id="wDate">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label>Session 1</label><input type="time" id="wStart1"></div>
+                    <div><label>Session 2</label><input type="time" id="wStart2"></div>
+                </div>
+                <label>Duration (Minutes)</label>
+                <input type="number" id="wDur" placeholder="e.g. 10">
+                <button id="wSave" class="btn btn-p" style="background:#3b82f6;"><i data-lucide="save"></i> Save Irrigation</button>
+            </div>
+
+            <!-- Fert Sched -->
+            <div class="card" style="border-left-color: var(--accent);">
+                <h4>Fertilizer Planner</h4>
+                <label>Date</label>
+                <input type="date" id="fDate">
+                <label>Feeding Start Time</label>
+                <input type="time" id="fTime">
+                <button id="fSave" class="btn btn-p" style="background:var(--accent);"><i data-lucide="calendar-days"></i> Set Feeding</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        const config = { 
+            apiKey: "AIzaSyAReyjrJAfJBBS9cZSDg8aDE2H-xGV_1K0", 
+            authDomain: "smartargi-39ce1.firebaseapp.com",
+            projectId: "smartargi-39ce1", 
+            databaseURL: "https://smartargi-39ce1-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+        };
+        const app = initializeApp(config);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        // Security check
+        onAuthStateChanged(auth, user => {
+            if(user) document.getElementById('main-body').style.display='block';
+            else window.location.href='index.html';
+        });
+
+        // 1. MONITOR SENSORS (Live Update)
+        onValue(ref(db, 'system/sensors'), snap => {
+            const d = snap.val();
+            if(d) {
+                document.getElementById('live-temp').innerText = d.temperature || "--";
+                document.getElementById('live-moist').innerText = d.moisture || "--";
+                document.getElementById('live-fert').innerText = d.fertilizerLevel || "0";
+                
+                const bar = document.getElementById('fert-bar');
+                const msg = document.getElementById('fert-msg');
+                bar.style.width = (d.fertilizerLevel || 0) + "%";
+                
+                if(d.fertilizerLevel < 20) {
+                    bar.classList.add('bar-low');
+                    msg.innerHTML = "🛑 <b>Alert:</b> Fertilizer low. Refill soon!";
+                    msg.style.color = "#d32f2f";
+                } else {
+                    bar.classList.remove('bar-low');
+                    msg.innerHTML = "✅ Supply levels optimal.";
+                    msg.style.color = "#2d5a27";
+                }
+            }
+        });
+
+        // 2. MONITOR PUMP STATUS
+        onValue(ref(db, 'system/controls/pumpWater'), s => {
+            const active = s.val();
+            const badge = document.getElementById('pump-state');
+            badge.innerText = active ? "WATERING SYSTEM ACTIVE" : "WATERING SYSTEM STANDBY";
+            badge.className = "status-box " + (active ? "pump-on" : "pump-off");
+        });
+
+        // 3. ACTION LOGGING HELPER
+        function addLog(msg, dur, st) {
+            push(ref(db, 'system/logs'), { time: new Date().toLocaleString(), msg, duration: dur, status: st });
+        }
+
+        // 4. MANUAL PUMP OVERRIDE
+        document.getElementById('manual-btn').onclick = () => {
+            onValue(ref(db, 'system/controls/pumpWater'), s => {
+                const ns = !s.val();
+                set(ref(db, 'system/controls/pumpWater'), ns).then(() => {
+                    addLog("Manual Overide", ns ? "Started" : "Stopped", "Done");
+                });
+            }, {onlyOnce: true});
+        };
+
+        // 5. WATER SCHEDULE SAVE
+        document.getElementById('wSave').onclick = () => {
+            const d = { 
+                date: wDate.value, 
+                startTime1: wStart1.value, 
+                startTime2: wStart2.value, 
+                durationMinutes: parseInt(wDur.value) || 0 
+            };
+            if(!d.date || !d.startTime1 || d.durationMinutes == 0) return alert("Please fill mandatory fields!");
+            
+            set(ref(db, 'system/schedules/watering'), d).then(() => {
+                alert("Irrigation Schedule Updated!");
+                addLog(`Watering Scheduled: ${d.date}`, `Time 1: ${d.startTime1}`, "Not Yet");
+            });
+        };
+
+        // 6. FERTILIZER SCHEDULE SAVE
+        document.getElementById('fSave').onclick = () => {
+            const d = { date: fDate.value, startTime: fTime.value };
+            if(!d.date || !d.startTime) return alert("Select Date and Time!");
+            
+            set(ref(db, 'system/schedules/fertilizing'), d).then(() => {
+                alert("Fertilizer Cycle Scheduled!");
+                addLog(`Feeding Set for ${d.date}`, d.startTime, "Not Yet");
+            });
+        };
+
+        // Logout logic
+        document.getElementById('logout').onclick = () => signOut(auth).then(() => window.location.href="index.html");
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>

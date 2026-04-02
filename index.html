@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>TerraMind | Home</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Poppins', sans-serif; background: #f0f4f0; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .hero { text-align: center; background: white; padding: 3rem; border-radius: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 400px; }
+        .logo-box { color: #2d5a27; margin-bottom: 1rem; }
+        .btn { display: block; width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 1rem; }
+        .btn-guest { background: #e8f5e9; color: #2d5a27; }
+        .btn-admin { background: #2d5a27; color: white; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="logo-box"><i data-lucide="sprout" size="48"></i><h2>TerraMind IoT</h2></div>
+        <p style="color: #666;">Choose your access mode:</p>
+        <a href="customer.html" class="btn btn-guest">Public Monitor View</a>
+        <hr>
+        <div id="login-form">
+            <h4 style="margin-bottom: 10px;">Admin Secure Portal</h4>
+            <input type="email" id="email" placeholder="Admin Email">
+            <input type="password" id="pass" placeholder="Password">
+            <button class="btn btn-admin" id="login-btn">Log in as Manager</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAReyjrJAfJBBS9cZSDg8aDE2H-xGV_1K0", 
+            authDomain: "smartargi-39ce1.firebaseapp.com",
+            projectId: "smartargi-39ce1", 
+            databaseURL: "https://smartargi-39ce1-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        document.getElementById('login-btn').onclick = () => {
+            signInWithEmailAndPassword(auth, email.value, pass.value)
+                .then(() => window.location.href = "admin.html")
+                .catch(e => alert("Login Failed: " + e.message));
+        };
+        lucide.createIcons();
+    </script>
+</body>
+</html>

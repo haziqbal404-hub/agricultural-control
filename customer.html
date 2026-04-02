@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>TerraMind | Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; background: #f9fafb; margin: 0; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 900px; margin: auto; }
+        .card { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+        .val { font-size: 3rem; font-weight: 600; color: #2d5a27; }
+        nav { padding: 10px; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <nav><a href="index.html" style="color: #2d5a27; text-decoration: none;">← Exit to Home</a></nav>
+    <h1 style="text-align: center;">Live Sensor Feedback</h1>
+    <div class="grid">
+        <div class="card"><h4>Air Temp</h4><div class="val"><span id="t">--</span>°C</div></div>
+        <div class="card"><h4>Soil Moist</h4><div class="val"><span id="m">--</span>%</div></div>
+        <div class="card"><h4>Supply Level</h4><div class="val"><span id="f">--</span>%</div></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAReyjrJAfJBBS9cZSDg8aDE2H-xGV_1K0", 
+            authDomain: "smartargi-39ce1.firebaseapp.com",
+            projectId: "smartargi-39ce1", 
+            databaseURL: "https://smartargi-39ce1-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        onValue(ref(db, 'system/sensors'), snap => {
+            const d = snap.val();
+            if(d) { t.innerText = d.temperature; m.innerText = d.moisture; f.innerText = d.fertilizerLevel; }
+        });
+    </script>
+</body>
+</html>
